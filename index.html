@@ -165,6 +165,7 @@ updateDoc,
 doc
 } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
 
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
 const firebaseConfig={
 apiKey:"AIzaSyCJshO6tgT6OM9_7WjWhF5a3Jc-0eajyj4",
 authDomain:"azr-transport.firebaseapp.com",
@@ -176,7 +177,15 @@ appId: "1:1039061356959:web:f4042c38ca5061d29dedaa"};
 
 
 const app=initializeApp(firebaseConfig);
-const db=getFirestore(app);
+  const db = getFirestore(app);
+
+const auth = getAuth(app);
+
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    window.location.href = "login.html";
+  }
+});
 window.myChart = null;
 
 if ("serviceWorker" in navigator) {
@@ -412,43 +421,6 @@ XLSX.writeFile(wb, "camions.xlsx");
 
 </script>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
-import {
-getFirestore,
-collection,
-addDoc,
-getDocs,
-onSnapshot,
-updateDoc,
-doc
-} from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
-
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
-
-const firebaseConfig = {
-apiKey: "AIzaSyCJshO6tgT6OM9_7WjWhF5a3Jc-0eajyj4",
-authDomain: "azr-transport.firebaseapp.com",
-projectId: "azr-transport",
-storageBucket: "azr-transport.firebasestorage.app",
-messagingSenderId: "1039061356959",
-appId: "1:1039061356959:web:f4042c38ca5061d29dedaa"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
-
-window.db = db;
-window.auth = auth;
-window.myChart = null;
-
-// 🔐 PROTECTION LOGIN
-onAuthStateChanged(auth, (user) => {
-  if (!user) {
-    window.location.href = "login.html";
-  }
-});
-  </script>
 </body>
+
 </html>
