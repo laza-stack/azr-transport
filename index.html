@@ -189,7 +189,11 @@ onAuthStateChanged(auth, (user) => {
 window.myChart = null;
 
 if ("serviceWorker" in navigator) {
-navigator.serviceWorker.register("sw.js");
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js")
+      .then(() => console.log("SW OK"))
+      .catch(() => console.log("SW ERREUR"));
+  });
 }
 
 window.show=(p)=>{
@@ -235,10 +239,12 @@ for (let d of snap.docs){
 let x=d.data();
 
 // ✅ CAS 1 : EXACTEMENT IDENTIQUE (anti double clic)
-if(JSON.stringify(x).includes(JSON.stringify(data))){
-alert("⚠ Donnée déjà enregistrée");
-return;
+{
+if (x.camion === data.camion && x.date === now().date) {
+  alert("⚠ Donnée déjà enregistrée");
+  return;
 }
+
 
 // ✅ CAS 2 : MEME CAMION → UPDATE état
 if(x.camion===data.camion){
@@ -317,10 +323,14 @@ window.myChart = new Chart(document.getElementById("chart"), {
       "Admin",
       "RH",
       "Dépôtage"
-    ],
     datasets: [{
-      data: [enroute, charg, dech, maint, panne, admin, rh, depotage]
-    }]
+  data: [enroute, charg, dech, maint, panne, admin, rh, depotage],
+  backgroundColor: [
+    "#3b82f6","#10b981","#f59e0b","#ef4444",
+    "#8b5cf6","#6366f1","#14b8a6","#f97316"
+  ]
+}]
+    
   }
 });
 
@@ -389,6 +399,8 @@ let snap = await getDocs(collection(db,"camions"));
 let data = [];
 
 snap.forEach(d => data.push(d.data()));
+
+data.sort((a,b)=>b.timestamp - a.timestamp);
 
 let excelData = data.map(x => ({
 "Camion": x.camion || "",
