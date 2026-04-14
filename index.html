@@ -410,5 +410,29 @@ XLSX.writeFile(wb, "camions.xlsx");
 
 };
 
-</script></body>
+</script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCJshO6tgT6OM9_7WjWhF5a3Jc-0eajyj4",
+  authDomain: "azr-transport.firebaseapp.com",
+  projectId: "azr-transport",
+  storageBucket: "azr-transport.firebasestorage.app",
+  messagingSenderId: "1039061356959",
+  appId: "1:1039061356959:web:f4042c38ca5061d29dedaa"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    window.location.href = "login.html";
+  }
+});
+</script>
+</body>
 </html>
