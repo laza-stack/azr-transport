@@ -1,0 +1,414 @@
+<!DOCTYPE html><html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>AZR TRANSPORT</title><!-- 📱 PWA --><link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e3a8a"><!-- 📊 CHART --><script src="https://cdn.jsdelivr.net/npm/chart.js"></script><!-- 📥 EXCEL EXPORT --><script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script><style>
+body{
+font-family:Arial;
+margin:0;
+background:#eef2ff;
+}
+
+header{
+background:linear-gradient(90deg,#1e3a8a,#2563eb);
+color:white;
+padding:18px;
+text-align:center;
+font-size:22px;
+font-weight:bold;
+}
+
+.page{display:none;padding:15px;}
+.active{display:block;}
+
+.card{
+background:white;
+padding:14px;
+margin-top:12px;
+border-radius:12px;
+box-shadow:0 6px 18px rgba(0,0,0,0.08);
+}
+
+input,select{
+width:100%;
+padding:10px;
+margin:6px 0;
+border-radius:8px;
+border:1px solid #ccc;
+}
+
+button{
+width:100%;
+padding:10px;
+margin-top:6px;
+border:none;
+border-radius:8px;
+cursor:pointer;
+}
+
+.btn{background:#2563eb;color:white;}
+.btn2{background:#10b981;color:white;}
+
+.gridDash{
+display:grid;
+grid-template-columns:repeat(2,1fr);
+gap:10px;
+margin-top:10px;
+}
+
+.dashBox{
+background:white;
+padding:12px;
+border-radius:12px;
+text-align:center;
+font-weight:bold;
+box-shadow:0 2px 10px rgba(0,0,0,0.08);
+}
+
+.viewBox{
+display:flex;
+flex-direction:column;
+gap:12px;
+margin-top:10px;
+}
+
+.fiche{
+background:white;
+padding:12px;
+border-radius:12px;
+box-shadow:0 4px 10px rgba(0,0,0,0.08);
+}
+
+.grid2{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:8px;
+font-size:13px;
+}
+
+.field{
+background:#f8fafc;
+padding:6px;
+border-radius:8px;
+}
+
+.label{
+font-weight:bold;
+color:#1e3a8a;
+}
+
+@media (min-width: 768px){
+.gridDash{
+grid-template-columns:repeat(4,1fr);
+}
+.page{
+max-width:1000px;
+margin:auto;
+}
+}
+</style></head><body><header>🚛 AZR TRANSPORT</header><!-- PAGE 1 --><div id="page1" class="page active"><div class="card">
+<h3>Accueil</h3>
+<button class="btn" onclick="show('page2')">➕ Ajouter camion</button>
+<button class="btn2" onclick="show('page3')">🔎 Voir camions</button>
+</div><div class="card">
+<h3>📊 Dashboard</h3><div class="gridDash">
+<div class="dashBox">🚛 Total<br><span id="total">0</span></div>
+<div class="dashBox">🟢 En route<br><span id="enroute">0</span></div>
+<div class="dashBox">🟡 Chargement<br><span id="chargement">0</span></div>
+<div class="dashBox">🟤 Dépotage<br><span id="depotage">0</span></div>
+<div class="dashBox">🔴 Déchargement<br><span id="dechargement">0</span></div>
+<div class="dashBox">🛠 Maintenance<br><span id="maintenance">0</span></div>
+<div class="dashBox">⚠ Panne<br><span id="panne">0</span></div>
+<div class="dashBox">👨‍💼 Admin<br><span id="admin">0</span></div>
+<div class="dashBox">📦 RH/QHSE<br><span id="rh">0</span></div>
+</div><canvas id="chart"></canvas>
+
+</div></div><!-- PAGE 2 --><div id="page2" class="page"><div class="card">
+<h3>➕ Ajouter Camion</h3><input id="camion" placeholder="Camion">
+<input id="remorque" placeholder="Remorque">
+<input id="chauffeur" placeholder="Chauffeur">
+<input id="tel_chauffeur" placeholder="Téléphone chauffeur">
+<input id="aide" placeholder="Aide chauffeur">
+<input id="tel_aide" placeholder="Téléphone aide">
+<input id="papier" placeholder="Papier">
+<input id="qhse" placeholder="QHSE">
+<input id="depart_lieu" placeholder="Lieu départ">
+<input id="depart_heure" placeholder="Heure départ">
+<input id="destination" placeholder="Destination">
+<input id="delai" placeholder="Délai">
+<input id="situation" placeholder="Situation">
+<input id="duree" placeholder="Durée"><select id="etat">
+<option>EN ROUTE</option>
+<option>CHARGEMENT</option>
+<option>DECHARGEMENT</option>
+<option>MAINTENANCE</option>
+<option>RH/QHSE</option>
+<option>PANNE</option>
+<option>ADMINISTRATIF</option>
+<option>DÉPOTAGE</option>
+</select><button class="btn2" onclick="saveData()">💾 Sauvegarder</button> <button class="btn" onclick="show('page1')">⬅ Retour</button>
+
+</div></div><!-- PAGE 3 --><div id="page3" class="page"><div class="card">
+<h3>🔎 Voir camions</h3><input id="search" placeholder="Camion">
+<input id="dateSearch" placeholder="Date"><button class="btn" onclick="searchData()">Rechercher</button> <button class="btn2" onclick="exportExcel()">📥 Export Excel</button> <button class="btn" onclick="show('page1')">Retour</button>
+
+</div><div id="result" class="viewBox"></div></div><script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
+import {
+getFirestore,
+collection,
+addDoc,
+getDocs,
+onSnapshot,
+updateDoc,
+doc
+} from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
+
+const firebaseConfig={
+apiKey:"AIzaSyCJshO6tgT6OM9_7WjWhF5a3Jc-0eajyj4",
+authDomain:"azr-transport.firebaseapp.com",
+projectId:"azr-transport",
+storageBucket: "azr-transport.firebasestorage.app",
+messagingSenderId: "1039061356959",
+appId: "1:1039061356959:web:f4042c38ca5061d29dedaa"};
+
+
+
+const app=initializeApp(firebaseConfig);
+const db=getFirestore(app);
+window.myChart = null;
+
+if ("serviceWorker" in navigator) {
+navigator.serviceWorker.register("sw.js");
+}
+
+window.show=(p)=>{
+document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
+document.getElementById(p).classList.add("active");
+};
+
+function now(){
+return{
+date:new Date().toLocaleDateString(),
+heure:new Date().toLocaleTimeString(),
+timestamp:Date.now()
+};
+}
+
+// 🔥 NOUVELLE LOGIQUE ANTI-DOUBLON + UPDATE
+window.saveData=async()=>{
+
+
+let data = {
+camion: document.getElementById("camion").value,
+remorque: document.getElementById("remorque").value,
+chauffeur: document.getElementById("chauffeur").value,
+tel_chauffeur: document.getElementById("tel_chauffeur").value,
+aide: document.getElementById("aide").value,
+tel_aide: document.getElementById("tel_aide").value,
+papier: document.getElementById("papier").value,
+qhse: document.getElementById("qhse").value,
+depart_lieu: document.getElementById("depart_lieu").value,
+depart_heure: document.getElementById("depart_heure").value,
+destination: document.getElementById("destination").value,
+delai: document.getElementById("delai").value,
+situation: document.getElementById("situation").value,
+duree: document.getElementById("duree").value,
+etat: document.getElementById("etat").value
+};
+
+
+let snap=await getDocs(collection(db,"camions"));
+let exist=false;
+
+for (let d of snap.docs){
+let x=d.data();
+
+// ✅ CAS 1 : EXACTEMENT IDENTIQUE (anti double clic)
+if(JSON.stringify(x).includes(JSON.stringify(data))){
+alert("⚠ Donnée déjà enregistrée");
+return;
+}
+
+// ✅ CAS 2 : MEME CAMION → UPDATE état
+if(x.camion===data.camion){
+await updateDoc(doc(db,"camions",d.id),{
+...data,
+...now()
+});
+alert("🔄 Camion mis à jour");
+exist=true;
+break;
+}
+}
+
+// ✅ CAS 3 : NOUVEAU CAMION
+if(!exist){
+await addDoc(collection(db,"camions"),{
+...data,
+...now()
+});
+alert("✅ Sauvegardé");
+}
+
+document.querySelectorAll("input").forEach(i=>i.value="");
+};
+
+onSnapshot(collection(db,"camions"),snap=>{
+
+let list=[];
+snap.forEach(d=>list.push(d.data()));
+
+let enroute=0,charg=0,dech=0,maint=0,panne=0,admin=0,rh=0,depotage=0;
+
+list.forEach(x => {
+
+let etat = (x.etat || "")
+  .trim()
+  .toUpperCase()
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "");
+
+if (etat === "EN ROUTE") enroute++;
+else if (etat === "CHARGEMENT") charg++;
+else if (etat === "DECHARGEMENT") dech++;
+else if (etat === "MAINTENANCE") maint++;
+else if (etat === "PANNE") panne++;
+else if (etat === "ADMINISTRATIF") admin++;
+else if (etat === "RH/QHSE") rh++;
+else if (etat === "DEPOTAGE") depotage++;
+
+});
+
+document.getElementById("total").innerText=list.length;
+document.getElementById("enroute").innerText=enroute;
+document.getElementById("chargement").innerText=charg;
+document.getElementById("dechargement").innerText=dech;
+document.getElementById("maintenance").innerText=maint;
+document.getElementById("panne").innerText=panne;
+document.getElementById("admin").innerText=admin;
+document.getElementById("rh").innerText=rh;
+document.getElementById("depotage").innerText=depotage;
+
+// 🔥 éviter duplication du graphique
+if (window.myChart) {
+  window.myChart.destroy();
+}
+
+window.myChart = new Chart(document.getElementById("chart"), {
+  type: "doughnut",
+  data: {
+    labels: [
+      "En route",
+      "Chargement",
+      "Déchargement",
+      "Maintenance",
+      "Panne",
+      "Admin",
+      "RH",
+      "Dépôtage"
+    ],
+    datasets: [{
+      data: [enroute, charg, dech, maint, panne, admin, rh, depotage]
+    }]
+  }
+});
+
+});
+
+function val(x){
+return (x===undefined || x===null || x==="") ? "—" : x;
+}
+
+window.searchData = async () => {
+
+let key = (document.getElementById("search").value || "").toLowerCase().trim();
+let date = (document.getElementById("dateSearch").value || "").trim();
+
+let snap = await getDocs(collection(db,"camions"));
+
+let data = [];
+snap.forEach(d => data.push(d.data()));
+
+let filtered = data.filter(x => {
+
+let camion = (x.camion || "").toString().trim().toUpperCase();
+let keyCamion = (key || "").trim().toUpperCase();
+
+let matchCamion = keyCamion === "" || camion === keyCamion;
+
+// date propre
+let dbDate = (x.date || "").toString().replace(/\s/g, "");
+let inputDate = (date || "").replace(/\s/g, "");
+
+let matchDate = !date || dbDate.includes(inputDate);
+
+return matchCamion && matchDate;
+});
+
+let html = "";
+
+filtered.forEach(x => {
+html += `<div class="fiche"><div class="grid2">
+<div class="field"><b>🚛 Camion:</b> ${val(x.camion)}</div>
+<div class="field"><b>🚚 Remorque:</b> ${val(x.remorque)}</div>
+<div class="field"><b>👨‍✈️ Chauffeur:</b> ${val(x.chauffeur)}</div>
+<div class="field"><b>📞 Tel:</b> ${val(x.tel_chauffeur)}</div>
+<div class="field"><b>🧑 Aide:</b> ${val(x.aide)}</div>
+<div class="field"><b>📞 Tel:</b> ${val(x.tel_aide)}</div>
+<div class="field"><b>📄 Papier:</b> ${val(x.papier)}</div>
+<div class="field"><b>🛡 QHSE:</b> ${val(x.qhse)}</div>
+<div class="field"><b>📍 Départ:</b> ${val(x.depart_lieu)} ${val(x.depart_heure)}</div>
+<div class="field"><b>🎯 Destination:</b> ${val(x.destination)}</div>
+<div class="field"><b>⏳ Délai:</b> ${val(x.delai)}</div>
+<div class="field"><b>📌 Situation:</b> ${val(x.situation)}</div>
+<div class="field"><b>⏱ Durée:</b> ${val(x.duree)}</div>
+<div class="field"><b>📊 État:</b> ${val(x.etat)}</div>
+<div class="field"><b>📅 Date:</b> ${val(x.date)} ${val(x.heure)}</div>
+</div></div>`;
+});
+
+document.getElementById("result").innerHTML = html || "Aucun résultat ❌";
+
+};
+
+window.exportExcel = async () => {
+
+let snap = await getDocs(collection(db,"camions"));
+
+let data = [];
+
+snap.forEach(d => data.push(d.data()));
+
+let excelData = data.map(x => ({
+"Camion": x.camion || "",
+"Remorque": x.remorque || "",
+"Chauffeur": x.chauffeur || "",
+"Tel Chauffeur": x.tel_chauffeur || "",
+"Aide": x.aide || "",
+"Tel Aide": x.tel_aide || "",
+"Papier": x.papier || "",
+"QHSE": x.qhse || "",
+"Lieu départ": x.depart_lieu || "",
+"Heure départ": x.depart_heure || "",
+"Destination": x.destination || "",
+"Délai": x.delai || "",
+"Situation": x.situation || "",
+"Durée": x.duree || "",
+"État": x.etat || "",
+"Date": x.date || "",
+"Heure": x.heure || ""
+}));
+
+let ws = XLSX.utils.json_to_sheet(excelData);
+let wb = XLSX.utils.book_new();
+
+XLSX.utils.book_append_sheet(wb, ws, "Camions");
+
+XLSX.writeFile(wb, "camions.xlsx");
+
+};
+
+</script></body>
+</html>
