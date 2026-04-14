@@ -207,11 +207,12 @@ document.getElementById(p).classList.add("active");
 };
 
 function now(){
-return{
-date:new Date().toLocaleDateString(),
-heure:new Date().toLocaleTimeString(),
-timestamp:Date.now()
-};
+  return {
+    date: new Date().toLocaleDateString(),
+    dateKey: new Date().toISOString().split("T")[0],
+    heure: new Date().toLocaleTimeString(),
+    timestamp: Date.now()
+  };
 }
 
 // 🔥 NOUVELLE LOGIQUE ANTI-DOUBLON + UPDATE
@@ -242,16 +243,24 @@ let exist = false;
 for (let d of snap.docs) {
   let x = d.data();
 
-  if (x.camion === data.camion && x.date === now().date) {
-    alert("⚠ Déjà enregistré aujourd’hui");
-    return;
+  if (x.camion === data.camion && x.dateKey === now().dateKey) {
+  alert("⚠ Déjà enregistré aujourd’hui");
+  return;
   }
 
   if (x.camion === data.camion) {
-    await updateDoc(doc(db, "camions", d.id), {
-      ...data,
-      ...now()
-    });
+    const cleanData = {};
+
+Object.keys(data).forEach(k => {
+  if (data[k] !== "" && data[k] !== null && data[k] !== undefined) {
+    cleanData[k] = data[k];
+  }
+});
+
+await updateDoc(doc(db, "camions", d.id), {
+  ...cleanData,
+  ...now()
+});
     alert("🔄 Camion mis à jour");
     exist = true;
     break;
@@ -266,9 +275,8 @@ if (!exist) {
   alert("✅ Sauvegardé");
 }
 
-document.querySelectorAll("input").forEach(i => i.value = "");
-
-};
+document.querySelectorAll("#page2 input").forEach(i => i.value = "");
+document.querySelectorAll("#page2 select").forEach(s => s.selectedIndex = 0);
 
 onSnapshot(collection(db,"camions"),snap=>{
 
