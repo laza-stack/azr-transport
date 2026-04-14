@@ -181,8 +181,12 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
+
 onAuthStateChanged(auth, (user) => {
-  if (!user) {
+  if (user) {
+    console.log("Connecté :", user.email);
+  } else {
     window.location.href = "login.html";
   }
 });
