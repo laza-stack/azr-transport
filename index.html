@@ -176,9 +176,9 @@ appId: "1:1039061356959:web:f4042c38ca5061d29dedaa"};
 
 
 
-const app=initializeApp(firebaseConfig);
-  const db = getFirestore(app);
+const app = initializeApp(firebaseConfig);
 
+const db = getFirestore(app);
 const auth = getAuth(app);
 
 onAuthStateChanged(auth, (user) => {
@@ -211,63 +211,58 @@ timestamp:Date.now()
 
 // 🔥 NOUVELLE LOGIQUE ANTI-DOUBLON + UPDATE
 window.saveData=async()=>{
-
+window.saveData = async () => {
 
 let data = {
-camion: document.getElementById("camion").value,
-remorque: document.getElementById("remorque").value,
-chauffeur: document.getElementById("chauffeur").value,
-tel_chauffeur: document.getElementById("tel_chauffeur").value,
-aide: document.getElementById("aide").value,
-tel_aide: document.getElementById("tel_aide").value,
-papier: document.getElementById("papier").value,
-qhse: document.getElementById("qhse").value,
-depart_lieu: document.getElementById("depart_lieu").value,
-depart_heure: document.getElementById("depart_heure").value,
-destination: document.getElementById("destination").value,
-delai: document.getElementById("delai").value,
-situation: document.getElementById("situation").value,
-duree: document.getElementById("duree").value,
-etat: document.getElementById("etat").value
+  camion: document.getElementById("camion").value,
+  remorque: document.getElementById("remorque").value,
+  chauffeur: document.getElementById("chauffeur").value,
+  tel_chauffeur: document.getElementById("tel_chauffeur").value,
+  aide: document.getElementById("aide").value,
+  tel_aide: document.getElementById("tel_aide").value,
+  papier: document.getElementById("papier").value,
+  qhse: document.getElementById("qhse").value,
+  depart_lieu: document.getElementById("depart_lieu").value,
+  depart_heure: document.getElementById("depart_heure").value,
+  destination: document.getElementById("destination").value,
+  delai: document.getElementById("delai").value,
+  situation: document.getElementById("situation").value,
+  duree: document.getElementById("duree").value,
+  etat: document.getElementById("etat").value
 };
 
+let snap = await getDocs(collection(db, "camions"));
+let exist = false;
 
-let snap=await getDocs(collection(db,"camions"));
-let exist=false;
+for (let d of snap.docs) {
+  let x = d.data();
 
-for (let d of snap.docs){
-let x=d.data();
+  if (x.camion === data.camion && x.date === now().date) {
+    alert("⚠ Déjà enregistré aujourd’hui");
+    return;
+  }
 
-// ✅ CAS 1 : EXACTEMENT IDENTIQUE (anti double clic)
-{
-if (x.camion === data.camion && x.date === now().date) {
-  alert("⚠ Donnée déjà enregistrée");
-  return;
+  if (x.camion === data.camion) {
+    await updateDoc(doc(db, "camions", d.id), {
+      ...data,
+      ...now()
+    });
+    alert("🔄 Camion mis à jour");
+    exist = true;
+    break;
+  }
 }
 
-
-// ✅ CAS 2 : MEME CAMION → UPDATE état
-if(x.camion===data.camion){
-await updateDoc(doc(db,"camions",d.id),{
-...data,
-...now()
-});
-alert("🔄 Camion mis à jour");
-exist=true;
-break;
-}
+if (!exist) {
+  await addDoc(collection(db, "camions"), {
+    ...data,
+    ...now()
+  });
+  alert("✅ Sauvegardé");
 }
 
-// ✅ CAS 3 : NOUVEAU CAMION
-if(!exist){
-await addDoc(collection(db,"camions"),{
-...data,
-...now()
-});
-alert("✅ Sauvegardé");
-}
+document.querySelectorAll("input").forEach(i => i.value = "");
 
-document.querySelectorAll("input").forEach(i=>i.value="");
 };
 
 onSnapshot(collection(db,"camions"),snap=>{
@@ -323,19 +318,22 @@ window.myChart = new Chart(document.getElementById("chart"), {
       "Admin",
       "RH",
       "Dépôtage"
+    ],
     datasets: [{
-  data: [enroute, charg, dech, maint, panne, admin, rh, depotage],
-  backgroundColor: [
-    "#3b82f6","#10b981","#f59e0b","#ef4444",
-    "#8b5cf6","#6366f1","#14b8a6","#f97316"
-  ]
-}]
-    
+      data: [enroute, charg, dech, maint, panne, admin, rh, depotage],
+      backgroundColor: [
+        "#3b82f6",
+        "#10b981",
+        "#f59e0b",
+        "#ef4444",
+        "#8b5cf6",
+        "#6366f1",
+        "#14b8a6",
+        "#f97316"
+      ]
+    }]
   }
 });
-
-});
-
 function val(x){
 return (x===undefined || x===null || x==="") ? "—" : x;
 }
