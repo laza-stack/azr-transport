@@ -29,10 +29,12 @@ window.loginUser = async () => {
 
   try {
     await signInWithEmailAndPassword(auth, email, password);
-    alert("Connexion réussie ✅");
 
-    // redirection vers ton site principal
-    window.location.href = "index.html";
+alert("Connexion réussie ✅");
+
+setTimeout(() => {
+  window.location.replace("index.html");
+}, 500);
 
   } catch (error) {
     alert("Erreur ❌ " + error.message);
