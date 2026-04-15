@@ -152,234 +152,282 @@ margin:auto;
 <h3>🔎 Voir camions</h3><input id="search" placeholder="Camion">
 <input id="dateSearch" placeholder="Date"><button class="btn" onclick="searchData()">Rechercher</button> <button class="btn2" onclick="exportExcel()">📥 Export Excel</button> <button class="btn" onclick="show('page1')">Retour</button>
 
-</div><div id="result" class="viewBox"></div>
-
-
-</div><script type="module">
+</div><div id="result" class="viewBox"></div></div><script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-app.js";
 import {
-  getFirestore,
-  collection,
-  addDoc,
-  getDocs,
-  onSnapshot,
-  updateDoc,
-  doc
+getFirestore,
+collection,
+addDoc,
+getDocs,
+onSnapshot,
+updateDoc,
+doc
 } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
+import {
+getAuth,
+onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
 
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-auth.js";
+const firebaseConfig={
+apiKey:"AIzaSyCJshO6tgT6OM9_7WjWhF5a3Jc-0eajyj4",
+authDomain:"azr-transport.firebaseapp.com",
+projectId:"azr-transport",
+storageBucket: "azr-transport.firebasestorage.app",
+messagingSenderId: "1039061356959",
+appId: "1:1039061356959:web:f4042c38ca5061d29dedaa"};
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCJshO6tgT6OM9_7WjWhF5a3Jc-0eajyj4",
-  authDomain: "azr-transport.firebaseapp.com",
-  projectId: "azr-transport",
-  storageBucket: "azr-transport.firebasestorage.app",
-  messagingSenderId: "1039061356959",
-  appId: "1:1039061356959:web:f4042c38ca5061d29dedaa"
-};
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+
+const app=initializeApp(firebaseConfig);
+
 const auth = getAuth(app);
 
-let cachedCamions = [];
+let isAuthChecked = false;
 
+// 🔐 Vérification login stable
+onAuthStateChanged(auth, (user) => {
+
+  if (isAuthChecked) return;
+  isAuthChecked = true;
+
+  if (user) {
+    console.log("✅ Connecté :", user.email);
+  } else {
+    console.log("❌ Non connecté");
+    window.location.href = "login.html";
+  }
+
+});
+
+const db=getFirestore(app);
 window.myChart = null;
 
-// 🔐 AUTH
-onAuthStateChanged(auth, (user) => {
-  if (!user) {
-    window.location.replace("login.html");
-  }
-});
-
-// 📡 LIVE DATA
-onSnapshot(collection(db, "camions"), snap => {
-
-  cachedCamions = snap.docs.map(d => ({
-    id: d.id,
-    ...d.data()
-  }));
-
-  let enroute=0,charg=0,dech=0,maint=0,panne=0,admin=0,rh=0,depotage=0;
-
-  for (let x of cachedCamions) {
-
-    let etat = (x.etat || "")
-      .toString()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .trim()
-      .toUpperCase();
-
-    if (etat === "EN ROUTE") enroute++;
-    else if (etat === "CHARGEMENT") charg++;
-    else if (etat === "DECHARGEMENT") dech++;
-    else if (etat === "MAINTENANCE") maint++;
-    else if (etat === "PANNE") panne++;
-    else if (etat === "ADMINISTRATIF") admin++;
-    else if (etat === "RH/QHSE") rh++;
-    else if (etat === "DEPOTAGE") depotage++;
-  }
-
-  document.getElementById("total").innerText = cachedCamions.length;
-  document.getElementById("enroute").innerText = enroute;
-  document.getElementById("chargement").innerText = charg;
-  document.getElementById("dechargement").innerText = dech;
-  document.getElementById("maintenance").innerText = maint;
-  document.getElementById("panne").innerText = panne;
-  document.getElementById("admin").innerText = admin;
-  document.getElementById("rh").innerText = rh;
-  document.getElementById("depotage").innerText = depotage;
-
-  if (window.myChart) window.myChart.destroy();
-
-  window.myChart = new Chart(document.getElementById("chart"), {
-    type: "doughnut",
-    data: {
-      labels: [
-        "En route","Chargement","Déchargement",
-        "Maintenance","Panne","Admin","RH","Dépôtage"
-      ],
-      datasets: [{
-        data: [enroute, charg, dech, maint, panne, admin, rh, depotage]
-      }]
-    }
-  });
-
-});
-
-// 🧠 TIME
-function now(){
-  return {
-    date: new Date().toLocaleDateString(),
-    dateKey: new Date().toISOString().split("T")[0],
-    heure: new Date().toLocaleTimeString(),
-    timestamp: Date.now()
-  };
+if ("serviceWorker" in navigator) {
+navigator.serviceWorker.register("sw.js");
 }
 
-// 💾 SAVE / UPDATE
+window.show=(p)=>{
+document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
+document.getElementById(p).classList.add("active");
+};
+
+function now(){
+return{
+date:new Date().toLocaleDateString(),
+heure:new Date().toLocaleTimeString(),
+timestamp:Date.now()
+};
+}
+
+// 🔥 NOUVELLE LOGIQUE ANTI-DOUBLON + UPDATE
 window.saveData = async () => {
 
   let data = {
-    camion: document.getElementById("camion").value,
-    remorque: document.getElementById("remorque").value,
-    chauffeur: document.getElementById("chauffeur").value,
-    tel_chauffeur: document.getElementById("tel_chauffeur").value,
-    aide: document.getElementById("aide").value,
-    tel_aide: document.getElementById("tel_aide").value,
-    papier: document.getElementById("papier").value,
-    qhse: document.getElementById("qhse").value,
-    depart_lieu: document.getElementById("depart_lieu").value,
-    depart_heure: document.getElementById("depart_heure").value,
-    destination: document.getElementById("destination").value,
-    delai: document.getElementById("delai").value,
-    situation: document.getElementById("situation").value,
-    duree: document.getElementById("duree").value,
+    camion: document.getElementById("camion").value.trim(),
+    remorque: document.getElementById("remorque").value.trim(),
+    chauffeur: document.getElementById("chauffeur").value.trim(),
+    tel_chauffeur: document.getElementById("tel_chauffeur").value.trim(),
+    aide: document.getElementById("aide").value.trim(),
+    tel_aide: document.getElementById("tel_aide").value.trim(),
+    papier: document.getElementById("papier").value.trim(),
+    qhse: document.getElementById("qhse").value.trim(),
+    depart_lieu: document.getElementById("depart_lieu").value.trim(),
+    depart_heure: document.getElementById("depart_heure").value.trim(),
+    destination: document.getElementById("destination").value.trim(),
+    delai: document.getElementById("delai").value.trim(),
+    situation: document.getElementById("situation").value.trim(),
+    duree: document.getElementById("duree").value.trim(),
     etat: document.getElementById("etat").value
   };
 
-  let exist = false;
+  // 🔎 recherche directe Firestore (PLUS PROPRE)
+  let snap = await getDocs(collection(db, "camions"));
 
-  for (let x of cachedCamions) {
+  let existingDoc = null;
 
-    if (
-      x.camion?.toLowerCase().trim() === data.camion?.toLowerCase().trim() &&
-      x.dateKey === now().dateKey
-    ) {
-
-      const cleanData = {};
-
-      for (let key in data) {
-        if (data[key]) cleanData[key] = data[key];
-      }
-
-      await updateDoc(doc(db, "camions", x.id), {
-        ...cleanData,
-        ...now()
-      });
-
-      alert("🔄 Camion mis à jour");
-      exist = true;
-      break;
+  snap.forEach(d => {
+    let x = d.data();
+    if (x.camion === data.camion) {
+      existingDoc = d.id;
     }
-  }
+  });
 
-  if (!exist) {
+  // 🔄 UPDATE si existe
+  if (existingDoc) {
+    await updateDoc(doc(db, "camions", existingDoc), {
+      ...data,
+      ...now()
+    });
+    alert("🔄 Camion mis à jour");
+  } 
+  // ➕ CREATE sinon
+  else {
     await addDoc(collection(db, "camions"), {
       ...data,
       ...now()
     });
-
     alert("✅ Sauvegardé");
   }
 
-  document.querySelectorAll("#page2 input").forEach(i => i.value = "");
-  document.querySelectorAll("#page2 select").forEach(s => s.selectedIndex = 0);
+  // reset inputs propre
+  document.querySelectorAll("input").forEach(i => i.value = "");
 };
 
-// 🔎 SEARCH
-window.searchData = () => {
+onSnapshot(collection(db,"camions"),snap=>{
 
-  let key = (document.getElementById("search").value || "").toLowerCase().trim();
-  let date = document.getElementById("dateSearch").value || "";
+let list=[];
+snap.forEach(d=>list.push(d.data()));
 
-  let filtered = cachedCamions.filter(x => {
+let enroute=0,charg=0,dech=0,maint=0,panne=0,admin=0,rh=0,depotage=0;
 
-    let matchCamion =
-      !key ||
-      (x.camion || "").toLowerCase().trim() === key;
+list.forEach(x => {
 
-    let matchDate =
-      !date ||
-      (x.dateKey && x.dateKey.includes(date));
+let etat = (x.etat || "")
+  .trim()
+  .toUpperCase()
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "");
 
-    return matchCamion && matchDate;
-  });
+if (etat === "EN ROUTE") enroute++;
+else if (etat === "CHARGEMENT") charg++;
+else if (etat === "DECHARGEMENT") dech++;
+else if (etat === "MAINTENANCE") maint++;
+else if (etat === "PANNE") panne++;
+else if (etat === "ADMINISTRATIF") admin++;
+else if (etat === "RH/QHSE") rh++;
+else if (etat === "DEPOTAGE") depotage++;
 
-  let html = "";
+});
 
-  filtered.forEach(x => {
-    html += `
-      <div class="fiche">
-        <div class="grid2">
-          <div class="field"><b>🚛 Camion:</b> ${x.camion || "—"}</div>
-          <div class="field"><b>🚚 Remorque:</b> ${x.remorque || "—"}</div>
-          <div class="field"><b>👨‍✈️ Chauffeur:</b> ${x.chauffeur || "—"}</div>
-          <div class="field"><b>📊 État:</b> ${x.etat || "—"}</div>
-          <div class="field"><b>📅 Date:</b> ${x.date || "—"} ${x.heure || ""}</div>
-        </div>
-      </div>`;
-  });
+document.getElementById("total").innerText=list.length;
+document.getElementById("enroute").innerText=enroute;
+document.getElementById("chargement").innerText=charg;
+document.getElementById("dechargement").innerText=dech;
+document.getElementById("maintenance").innerText=maint;
+document.getElementById("panne").innerText=panne;
+document.getElementById("admin").innerText=admin;
+document.getElementById("rh").innerText=rh;
+document.getElementById("depotage").innerText=depotage;
 
-  document.getElementById("result").innerHTML =
-    html || "Aucun résultat ❌";
+// 🔥 éviter duplication du graphique
+if (window.myChart) {
+  window.myChart.destroy();
+}
+
+window.myChart = new Chart(document.getElementById("chart"), {
+  type: "doughnut",
+  data: {
+    labels: [
+      "En route",
+      "Chargement",
+      "Déchargement",
+      "Maintenance",
+      "Panne",
+      "Admin",
+      "RH",
+      "Dépôtage"
+    ],
+    datasets: [{
+      data: [enroute, charg, dech, maint, panne, admin, rh, depotage]
+    }]
+  }
+});
+
+});
+
+function val(x){
+return (x===undefined || x===null || x==="") ? "—" : x;
+}
+
+window.searchData = async () => {
+
+let key = (document.getElementById("search").value || "").toLowerCase().trim();
+let date = (document.getElementById("dateSearch").value || "").trim();
+
+let snap = await getDocs(collection(db,"camions"));
+
+let data = [];
+snap.forEach(d => data.push(d.data()));
+
+let filtered = data.filter(x => {
+
+let camion = (x.camion || "").toString().trim().toUpperCase();
+let keyCamion = (key || "").trim().toUpperCase();
+
+let matchCamion = keyCamion === "" || camion === keyCamion;
+
+// date propre
+let dbDate = (x.date || "").toString().replace(/\s/g, "");
+let inputDate = (date || "").replace(/\s/g, "");
+
+let matchDate = !date || dbDate.includes(inputDate);
+
+return matchCamion && matchDate;
+});
+
+let html = "";
+
+filtered.forEach(x => {
+html += `<div class="fiche"><div class="grid2">
+<div class="field"><b>🚛 Camion:</b> ${val(x.camion)}</div>
+<div class="field"><b>🚚 Remorque:</b> ${val(x.remorque)}</div>
+<div class="field"><b>👨‍✈️ Chauffeur:</b> ${val(x.chauffeur)}</div>
+<div class="field"><b>📞 Tel:</b> ${val(x.tel_chauffeur)}</div>
+<div class="field"><b>🧑 Aide:</b> ${val(x.aide)}</div>
+<div class="field"><b>📞 Tel:</b> ${val(x.tel_aide)}</div>
+<div class="field"><b>📄 Papier:</b> ${val(x.papier)}</div>
+<div class="field"><b>🛡 QHSE:</b> ${val(x.qhse)}</div>
+<div class="field"><b>📍 Départ:</b> ${val(x.depart_lieu)} ${val(x.depart_heure)}</div>
+<div class="field"><b>🎯 Destination:</b> ${val(x.destination)}</div>
+<div class="field"><b>⏳ Délai:</b> ${val(x.delai)}</div>
+<div class="field"><b>📌 Situation:</b> ${val(x.situation)}</div>
+<div class="field"><b>⏱ Durée:</b> ${val(x.duree)}</div>
+<div class="field"><b>📊 État:</b> ${val(x.etat)}</div>
+<div class="field"><b>📅 Date:</b> ${val(x.date)} ${val(x.heure)}</div>
+</div></div>`;
+});
+
+document.getElementById("result").innerHTML = html || "Aucun résultat ❌";
+
 };
 
-// 📥 EXPORT
-window.exportExcel = () => {
+window.exportExcel = async () => {
 
-  let data = cachedCamions.map(x => ({
-    Camion: x.camion || "",
-    Remorque: x.remorque || "",
-    Chauffeur: x.chauffeur || "",
-    Etat: x.etat || "",
-    Date: x.date || "",
-    Heure: x.heure || ""
-  }));
+let snap = await getDocs(collection(db,"camions"));
 
-  let ws = XLSX.utils.json_to_sheet(data);
-  let wb = XLSX.utils.book_new();
+let data = [];
 
-  XLSX.utils.book_append_sheet(wb, ws, "Camions");
+snap.forEach(d => data.push(d.data()));
 
-  XLSX.writeFile(wb, "camions.xlsx");
+let excelData = data.map(x => ({
+"Camion": x.camion || "",
+"Remorque": x.remorque || "",
+"Chauffeur": x.chauffeur || "",
+"Tel Chauffeur": x.tel_chauffeur || "",
+"Aide": x.aide || "",
+"Tel Aide": x.tel_aide || "",
+"Papier": x.papier || "",
+"QHSE": x.qhse || "",
+"Lieu départ": x.depart_lieu || "",
+"Heure départ": x.depart_heure || "",
+"Destination": x.destination || "",
+"Délai": x.delai || "",
+"Situation": x.situation || "",
+"Durée": x.duree || "",
+"État": x.etat || "",
+"Date": x.date || "",
+"Heure": x.heure || ""
+}));
+
+let ws = XLSX.utils.json_to_sheet(excelData);
+let wb = XLSX.utils.book_new();
+
+XLSX.utils.book_append_sheet(wb, ws, "Camions");
+
+XLSX.writeFile(wb, "camions.xlsx");
+
 };
 
-</script>
-
-</body>
-
+</script></body>
 </html>
