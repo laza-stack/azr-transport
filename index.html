@@ -195,7 +195,7 @@ onAuthStateChanged(auth, (user) => {
     console.log("✅ Connecté :", user.email);
   } else {
     console.log("❌ Non connecté");
-    window.location.href = "login.html";
+    window.location.replace("login.html");
   }
 
 });
@@ -243,15 +243,12 @@ window.saveData = async () => {
 
   // 🔎 recherche directe Firestore (PLUS PROPRE)
   let snap = await getDocs(collection(db, "camions"));
+import { query, where } from "https://www.gstatic.com/firebasejs/12.12.0/firebase-firestore.js";
 
-  let existingDoc = null;
+let q = query(collection(db, "camions"), where("camion", "==", data.camion));
+let snap = await getDocs(q);
 
-  snap.forEach(d => {
-    let x = d.data();
-    if (x.camion === data.camion) {
-      existingDoc = d.id;
-    }
-  });
+let existingDoc = snap.docs.length > 0 ? snap.docs[0].id : null;
 
   // 🔄 UPDATE si existe
   if (existingDoc) {
@@ -271,23 +268,17 @@ window.saveData = async () => {
   }
 
   // reset inputs propre
-  document.querySelectorAll("input").forEach(i => i.value = "");
-};
+  document.querySelectorAll("#page2 input").forEach(i => i.value = "");
 
 onSnapshot(collection(db,"camions"),snap=>{
 
-let list=[];
-snap.forEach(d=>list.push(d.data()));
+let list = snap.docs.map(d => d.data());
 
 let enroute=0,charg=0,dech=0,maint=0,panne=0,admin=0,rh=0,depotage=0;
 
 list.forEach(x => {
 
-let etat = (x.etat || "")
-  .trim()
-  .toUpperCase()
-  .normalize("NFD")
-  .replace(/[\u0300-\u036f]/g, "");
+let etat = (x.etat || "").trim().toUpperCase();
 
 if (etat === "EN ROUTE") enroute++;
 else if (etat === "CHARGEMENT") charg++;
